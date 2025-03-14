@@ -1,0 +1,16 @@
+{
+  "name": "rag-directory",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "DIRECTORY_PATH=/Users/yakpoong/develop/inflab VECTOR_DB_PATH=./db/vector_store.dat node ./src/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.8.3",
+    "chromadb": "^2.0.1"
+  }
+}
