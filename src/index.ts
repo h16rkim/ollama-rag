@@ -1,6 +1,7 @@
 // code-rag-ollama.ts
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import * as os from 'os';
 import axios from 'axios';
 import { ChromaClient, Collection, Metadata, Metadatas } from 'chromadb';
 import CONFIG from './config';
@@ -21,9 +22,20 @@ interface Chunk {
   metadata: ChunkMetadata;
 }
 
-// 환경변수 값 로깅
+// 경로에서 틸드(~)를 사용자 홈 디렉토리로 확장
+function expandTilde(filePath: string): string {
+  if (filePath.startsWith('~/') || filePath === '~') {
+    return filePath.replace(/^~/, os.homedir());
+  }
+  return filePath;
+}
+
+// 환경변수 값 로깅 - 원래 경로(틸드 포함)와 확장된 경로 모두 표시
 console.log('⚙️ 구성 설정:');
-console.log(`- 코드 디렉토리: ${CONFIG.directoryPath}`);
+console.log(`- 코드 디렉토리 목록 (원본): ${CONFIG.directoryPaths.join(', ')}`);
+// 시스템 경로 표시
+const expandedPaths = CONFIG.directoryPaths.map(dir => path.resolve(dir));
+console.log(`- 코드 디렉토리 목록 (확장): ${expandedPaths.join(', ')}`);
 console.log(`- Ollama 모델: ${CONFIG.ollama.model}`);
 console.log(`- 청크 크기: ${CONFIG.chunkSize}`);
 console.log(`- 청크 오버랩: ${CONFIG.chunkOverlap}`);
@@ -93,37 +105,80 @@ async function readFile(filePath: string): Promise<string | null> {
   }
 }
 
+// 디렉토리가 존재하는지 확인
+async function directoryExists(dirPath: string): Promise<boolean> {
+  try {
+    const stats = await fs.stat(dirPath);
+    return stats.isDirectory();
+  } catch (error) {
+    return false;
+  }
+}
+
 // 디렉토리를 재귀적으로 순회하며 코드 파일 찾기
 async function findCodeFiles(dir: string): Promise<string[]> {
   const files: string[] = [];
 
-  async function traverse(currentDir: string): Promise<void> {
-    const entries = await fs.readdir(currentDir, { withFileTypes: true });
+  try {
+    // 경로가 존재하는지 확인
+    const exists = await directoryExists(dir);
+    if (!exists) {
+      console.error(`디렉토리가 존재하지 않습니다: ${dir}`);
+      return [];
+    }
 
-    for (const entry of entries) {
-      const fullPath = path.join(currentDir, entry.name);
+    async function traverse(currentDir: string): Promise<void> {
+      const entries = await fs.readdir(currentDir, { withFileTypes: true });
 
-      // 무시할 패턴인지 확인
-      if (CONFIG.ignorePatterns.some(pattern => {
-        if (pattern.startsWith('*.')) {
-          const ext = pattern.replace('*.', '');
-          return entry.name.endsWith(`.${ext}`);
+      for (const entry of entries) {
+        const fullPath = path.join(currentDir, entry.name);
+
+        // 무시할 패턴인지 확인
+        if (CONFIG.ignorePatterns.some(pattern => {
+          if (pattern.startsWith('*.')) {
+            const ext = pattern.replace('*.', '');
+            return entry.name.endsWith(`.${ext}`);
+          }
+          return entry.name === pattern || fullPath.includes(`/${pattern}/`);
+        })) {
+          continue;
         }
-        return entry.name === pattern || fullPath.includes(`/${pattern}/`);
-      })) {
-        continue;
-      }
 
-      if (entry.isDirectory()) {
-        await traverse(fullPath);
-      } else if (CONFIG.allowedExtensions.some(ext => entry.name.endsWith(ext))) {
-        files.push(fullPath);
+        if (entry.isDirectory()) {
+          await traverse(fullPath);
+        } else if (CONFIG.allowedExtensions.some(ext => entry.name.endsWith(ext))) {
+          files.push(fullPath);
+        }
       }
     }
-  }
 
-  await traverse(dir);
-  return files;
+    await traverse(dir);
+    return files;
+  } catch (error) {
+    console.error(`디렉토리 스캔 오류 (${dir}):`, (error as Error).message);
+    return [];
+  }
+}
+
+// 모든 디렉토리에서 코드 파일 찾기
+async function findAllCodeFiles(directories: string[]): Promise<string[]> {
+  let allFiles: string[] = [];
+  
+  for (const dir of directories) {
+    // 확장된 경로 사용
+    const expandedDir = expandTilde(dir);
+    console.log(`디렉토리 스캔 중: ${dir} (확장: ${expandedDir})`);
+    
+    try {
+      const dirFiles = await findCodeFiles(expandedDir);
+      console.log(`- ${dir}에서 ${dirFiles.length}개 파일 발견`);
+      allFiles = [...allFiles, ...dirFiles];
+    } catch (error) {
+      console.error(`${dir} 디렉토리 처리 중 오류:`, (error as Error).message);
+    }
+  }
+  
+  return allFiles;
 }
 
 // 텍스트를 청크로 분할
@@ -178,13 +233,20 @@ function splitTextIntoChunks(text: string, filepath: string): Chunk[] {
 async function main(): Promise<void> {
   try {
     // 환경변수가 제대로 설정되었는지 확인 (CONFIG 사용)
-    if (CONFIG.directoryPath === './your-codebase-directory') {
-      console.warn('⚠️ 경고: directoryPath가 기본값으로 설정되어 있습니다. 환경변수 DIRECTORY_PATH를 설정하세요.');
+    if (CONFIG.directoryPaths.length === 0 || 
+        (CONFIG.directoryPaths.length === 1 && CONFIG.directoryPaths[0] === './your-codebase-directory')) {
+      console.warn('⚠️ 경고: DIRECTORY_PATHS 환경변수가 설정되지 않았습니다. 기본값을 사용합니다.');
     }
 
     console.log('📚 코드 파일 검색 중...');
-    const codeFiles = await findCodeFiles(CONFIG.directoryPath);
+    // 모든 디렉토리에서 코드 파일 찾기
+    const codeFiles = await findAllCodeFiles(CONFIG.directoryPaths);
     console.log(`총 ${codeFiles.length}개의 코드 파일을 찾았습니다.`);
+
+    if (codeFiles.length === 0) {
+      console.warn('⚠️ 경고: 처리할 코드 파일이 없습니다. 디렉토리 경로를 확인하세요.');
+      process.exit(0);
+    }
 
     // ChromaDB 초기화
     const collection = await initChromaDB();
@@ -215,7 +277,7 @@ async function main(): Promise<void> {
         const chunk = chunks[j];
 
         // 고유 ID 생성
-        const id = `${path.basename(filePath)}_chunk_${j}`;
+        const id = `${path.basename(filePath)}_chunk_${j}_${Date.now()}`;
         ids.push(id);
 
         // 문서 내용

@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/server.js",
-    "seed": "DIRECTORY_PATH=/Users/yakpoong/develop/inflab VECTOR_DB_PATH=./db/code_farm.dat COLLECTION_NAME=code_farm node dist/index.js",
+    "seed": "DIRECTORY_PATHS=~/develop/inflab/course-backend,~/develop/inflab/inflearn-backend,~/develop/inflab/search COLLECTION_NAME=code_farm node dist/index.js",
     "dev": "ts-node src/index.ts"
   },
   "keywords": [],
