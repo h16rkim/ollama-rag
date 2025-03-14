@@ -2,15 +2,27 @@
   "name": "rag-directory",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
-    "seed": "DIRECTORY_PATH=/Users/yakpoong/develop/inflab VECTOR_DB_PATH=./db/code_farm.dat COLLECTION_NAME=code_farm node ./src/index.js"
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "seed": "DIRECTORY_PATH=/Users/yakpoong/develop/inflab VECTOR_DB_PATH=./db/code_farm.dat COLLECTION_NAME=code_farm node dist/index.js",
+    "dev": "ts-node src/index.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "axios": "^1.8.3",
-    "chromadb": "^2.0.1"
+    "chromadb": "^2.0.1",
+    "cors": "^2.8.5",
+    "express": "^4.18.3"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.11.20",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
   }
 }
