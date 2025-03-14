@@ -3,52 +3,12 @@ const fs = require('fs').promises;
 const path = require('path');
 const axios = require('axios');
 const { ChromaClient, OpenAIEmbeddingFunction } = require('chromadb');
-
-// 환경변수에서 설정 값 가져오기
-const DIRECTORY_PATH = process.env.DIRECTORY_PATH || './your-codebase-directory';
-const VECTOR_DB_PATH = process.env.VECTOR_DB_PATH || './chroma-db';
-
-// 설정
-const CONFIG = {
-  // 벡터화할 코드가 있는 디렉토리 경로 (환경변수에서 가져옴)
-  sourceDir: DIRECTORY_PATH,
-  // 무시할 파일/폴더 패턴
-  ignorePatterns: [
-    'node_modules',
-    '.git',
-    'dist',
-    'build',
-    '.env',
-    '*.log',
-    '*.lock',
-    'package-lock.json',
-    '.json', '.yaml', '.yml'
-  ],
-  // 처리할 파일 확장자 (TypeScript, Kotlin, Java 중심)
-  allowedExtensions: [
-    '.ts', '.tsx', '.js', '.jsx',
-    '.kt', '.java',
-  ],
-  // ChromaDB 설정 (환경변수에서 가져옴)
-  chroma: {
-    collectionName: 'yakpoong',
-    path: VECTOR_DB_PATH
-  },
-  // Ollama 설정
-  ollama: {
-    baseUrl: process.env.OLLAMA_BASE_URL || 'http://localhost:11434',
-    model: process.env.OLLAMA_MODEL || 'qwen2.5-coder:7b-instruct-q4_K_M',
-    embeddingModel: process.env.OLLAMA_EMBEDDING_MODEL || 'qwen2.5-coder:7b-instruct-q4_K_M'
-  },
-  // 텍스트 분할 설정
-  chunkSize: parseInt(process.env.CHUNK_SIZE || '1000'),
-  chunkOverlap: parseInt(process.env.CHUNK_OVERLAP || '200')
-};
+const CONFIG = require('./config');
 
 // 환경변수 값 로깅
 console.log('⚙️ 구성 설정:');
-console.log(`- 코드 디렉토리: ${CONFIG.sourceDir}`);
-console.log(`- 벡터 DB 경로: ${CONFIG.chroma.path}`);
+console.log(`- 코드 디렉토리: ${CONFIG.directoryPath}`);
+console.log(`- 벡터 DB 경로: ${CONFIG.vectorDbPath}`);
 console.log(`- Ollama 모델: ${CONFIG.ollama.model}`);
 console.log(`- 청크 크기: ${CONFIG.chunkSize}`);
 console.log(`- 청크 오버랩: ${CONFIG.chunkOverlap}`);
@@ -222,17 +182,17 @@ async function queryOllama(query, contexts) {
 // 메인 함수
 async function main() {
   try {
-    // 환경변수가 제대로 설정되었는지 확인
-    if (!process.env.DIRECTORY_PATH) {
-      console.warn('⚠️ 경고: DIRECTORY_PATH 환경변수가 설정되지 않았습니다. 기본값을 사용합니다.');
+    // 환경변수가 제대로 설정되었는지 확인 (CONFIG 사용)
+    if (CONFIG.directoryPath === './your-codebase-directory') {
+      console.warn('⚠️ 경고: directoryPath가 기본값으로 설정되어 있습니다. 환경변수 DIRECTORY_PATH를 설정하세요.');
     }
 
-    if (!process.env.VECTOR_DB_PATH) {
-      console.warn('⚠️ 경고: VECTOR_DB_PATH 환경변수가 설정되지 않았습니다. 기본값을 사용합니다.');
+    if (CONFIG.vectorDbPath === './chroma-db') {
+      console.warn('⚠️ 경고: vectorDbPath가 기본값으로 설정되어 있습니다. 환경변수 VECTOR_DB_PATH를 설정하세요.');
     }
 
     console.log('📚 코드 파일 검색 중...');
-    const codeFiles = await findCodeFiles(CONFIG.sourceDir);
+    const codeFiles = await findCodeFiles(CONFIG.directoryPath);
     console.log(`총 ${codeFiles.length}개의 코드 파일을 찾았습니다.`);
 
     // ChromaDB 초기화

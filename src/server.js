@@ -3,15 +3,9 @@ const express = require('express');
 const axios = require('axios');
 const { ChromaClient } = require('chromadb');
 const cors = require('cors');
+const CONFIG = require('./config');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-
-// 환경변수 설정
-const VECTOR_DB_PATH = process.env.VECTOR_DB_PATH || './chroma-db';
-const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'my-coding-style';
-const COLLECTION_NAME = process.env.COLLECTION_NAME || 'my-coding-style';
 
 // 미들웨어 설정
 app.use(cors());
@@ -20,8 +14,8 @@ app.use(express.json());
 // Ollama 임베딩 함수
 async function generateEmbedding(text) {
   try {
-    const response = await axios.post(`${OLLAMA_BASE_URL}/api/embeddings`, {
-      model: OLLAMA_MODEL,
+    const response = await axios.post(`${CONFIG.ollama.baseUrl}/api/embeddings`, {
+      model: CONFIG.ollama.embeddingModel,
       prompt: text
     });
     return response.data.embedding;
@@ -49,10 +43,10 @@ async function initChromaDB() {
 
   try {
     collection = await client.getCollection({
-      name: COLLECTION_NAME,
+      name: CONFIG.chroma.collectionName,
       embeddingFunction
     });
-    console.log(`컬렉션 "${COLLECTION_NAME}" 연결됨`);
+    console.log(`컬렉션 "${CONFIG.chroma.collectionName}" 연결됨`);
   } catch (error) {
     console.error('컬렉션 초기화 오류:', error.message);
     throw error;
@@ -107,8 +101,8 @@ app.post('/v1/chat/completions', async (req, res) => {
     }
 
     // Ollama API 호출
-    const ollamaResponse = await axios.post(`${OLLAMA_BASE_URL}/api/chat`, {
-      model: OLLAMA_MODEL,
+    const ollamaResponse = await axios.post(`${CONFIG.ollama.baseUrl}/api/chat`, {
+      model: CONFIG.ollama.model,
       messages: updatedMessages,
       stream: false
     });
@@ -118,7 +112,7 @@ app.post('/v1/chat/completions', async (req, res) => {
       id: `chatcmpl-${Date.now()}`,
       object: 'chat.completion',
       created: Math.floor(Date.now() / 1000),
-      model: OLLAMA_MODEL,
+      model: CONFIG.ollama.model,
       choices: [
         {
           index: 0,
@@ -145,8 +139,8 @@ async function startServer() {
   try {
     await initChromaDB();
 
-    app.listen(PORT, () => {
-      console.log(`OpenAI 호환 API 서버가 http://localhost:${PORT}에서 실행 중입니다`);
+    app.listen(CONFIG.serverPort, () => {
+      console.log(`OpenAI 호환 API 서버가 http://localhost:${CONFIG.serverPort}에서 실행 중입니다`);
       console.log(`이 서버는 Jetbrains AI Assistant와 연동할 수 있습니다.`);
     });
   } catch (error) {
