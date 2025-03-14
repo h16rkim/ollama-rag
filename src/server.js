@@ -28,7 +28,11 @@ async function generateEmbedding(text) {
 // ChromaDB 초기화
 let collection = null;
 async function initChromaDB() {
-  const client = new ChromaClient();
+  // Docker에서 실행 중인 ChromaDB 서버에 연결
+  console.log(`ChromaDB 서버에 연결 중: ${CONFIG.chroma.url}`);
+  const client = new ChromaClient({
+    path: CONFIG.chroma.url
+  });
 
   const embeddingFunction = {
     generate: async (texts) => {
@@ -142,6 +146,7 @@ async function startServer() {
     app.listen(CONFIG.serverPort, () => {
       console.log(`OpenAI 호환 API 서버가 http://localhost:${CONFIG.serverPort}에서 실행 중입니다`);
       console.log(`이 서버는 Jetbrains AI Assistant와 연동할 수 있습니다.`);
+      console.log(`ChromaDB 연결: ${CONFIG.chroma.url}, 컬렉션: ${CONFIG.chroma.collectionName}`);
     });
   } catch (error) {
     console.error('서버 초기화 오류:', error.message);

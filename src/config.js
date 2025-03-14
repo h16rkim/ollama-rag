@@ -3,8 +3,6 @@
 const CONFIG = {
   // 벡터화할 코드가 있는 디렉토리 경로 (환경변수에서 가져옴)
   directoryPath: process.env.DIRECTORY_PATH || './your-codebase-directory',
-  // 벡터 DB 경로
-  vectorDbPath: process.env.VECTOR_DB_PATH || './chroma-db',
   // 서버 포트
   serverPort: parseInt(process.env.PORT || '3000'),
   // 무시할 파일/폴더 패턴
@@ -24,11 +22,13 @@ const CONFIG = {
     '.ts', '.tsx', '.js', '.jsx',
     '.kt', '.java',
   ],
-  // ChromaDB 설정 (환경변수에서 가져옴)
+  // ChromaDB 설정
   chroma: {
     collectionName: process.env.COLLECTION_NAME || 'code_farm',
-    // vectorDbPath 참조
-    get path() { return CONFIG.vectorDbPath; }
+    host: process.env.CHROMA_HOST || 'localhost',
+    port: process.env.CHROMA_PORT || 8000,
+    // Docker 컨테이너에서 실행 중인 ChromaDB 서버에 연결
+    url: process.env.CHROMA_URL || 'http://localhost:8000'
   },
   // Ollama 설정
   ollama: {

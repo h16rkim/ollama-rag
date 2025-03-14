@@ -8,10 +8,10 @@ const CONFIG = require('./config');
 // 환경변수 값 로깅
 console.log('⚙️ 구성 설정:');
 console.log(`- 코드 디렉토리: ${CONFIG.directoryPath}`);
-console.log(`- 벡터 DB 경로: ${CONFIG.vectorDbPath}`);
 console.log(`- Ollama 모델: ${CONFIG.ollama.model}`);
 console.log(`- 청크 크기: ${CONFIG.chunkSize}`);
 console.log(`- 청크 오버랩: ${CONFIG.chunkOverlap}`);
+console.log(`- ChromaDB URL: ${CONFIG.chroma.url}`);
 
 // Ollama API를 통해 임베딩 생성
 async function generateEmbedding(text) {
@@ -30,7 +30,11 @@ async function generateEmbedding(text) {
 
 // ChromaDB 클라이언트 초기화
 async function initChromaDB() {
-  const client = new ChromaClient();
+  // Docker에서 실행 중인 ChromaDB 서버에 연결
+  console.log(`ChromaDB 서버에 연결 중: ${CONFIG.chroma.url}`);
+  const client = new ChromaClient({
+    path: CONFIG.chroma.url
+  });
 
   // 커스텀 임베딩 함수 (Ollama 사용)
   const embeddingFunction = {
@@ -48,6 +52,7 @@ async function initChromaDB() {
     await client.deleteCollection({ name: CONFIG.chroma.collectionName });
     console.log(`기존 컬렉션 삭제: ${CONFIG.chroma.collectionName}`);
   } catch (error) {
+    console.log(`컬렉션 삭제 중 오류 (무시됨): ${error.message}`);
     // 컬렉션이 없는 경우 무시
   }
 
@@ -57,6 +62,7 @@ async function initChromaDB() {
     embeddingFunction
   });
 
+  console.log(`ChromaDB 컬렉션 '${CONFIG.chroma.collectionName}' 생성 완료`);
   return collection;
 }
 
@@ -185,10 +191,6 @@ async function main() {
     // 환경변수가 제대로 설정되었는지 확인 (CONFIG 사용)
     if (CONFIG.directoryPath === './your-codebase-directory') {
       console.warn('⚠️ 경고: directoryPath가 기본값으로 설정되어 있습니다. 환경변수 DIRECTORY_PATH를 설정하세요.');
-    }
-
-    if (CONFIG.vectorDbPath === './chroma-db') {
-      console.warn('⚠️ 경고: vectorDbPath가 기본값으로 설정되어 있습니다. 환경변수 VECTOR_DB_PATH를 설정하세요.');
     }
 
     console.log('📚 코드 파일 검색 중...');
