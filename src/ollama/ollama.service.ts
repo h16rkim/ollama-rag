@@ -67,7 +67,6 @@ export class OllamaService {
     
     this.logger.log(`/api/chat 요청: ${modelToUse}, 스트리밍: ${stream}`);
     
-    try {
       // Ollama API 요청
       const response = await axios.post(
         `${this.configService.get('ollama').baseUrl}/api/chat`, 
@@ -79,10 +78,6 @@ export class OllamaService {
         response,
         isStream: stream
       };
-    } catch (error) {
-      this.logger.error('Chat API 오류:', error.message);
-      throw error;
-    }
   }
 
   /**

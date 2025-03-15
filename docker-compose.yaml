@@ -21,6 +21,21 @@ services:
       timeout: 5s
       retries: 5
 
+  nestjs-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nestjs-ollama-rag
+    network_mode: "host"  # 호스트 네트워크 모드 사용
+    environment:
+      - PORT=9007
+      - CHROMA_HOST=localhost  # 호스트 네트워크를 사용하므로 localhost로 변경
+      - CHROMA_URL=http://localhost:8000  # 호스트 네트워크를 사용하므로 localhost로 변경
+    depends_on:
+      chromadb:
+        condition: service_healthy
+    restart: unless-stopped
+
 networks:
   rag-network:
     driver: bridge

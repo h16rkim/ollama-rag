@@ -18,7 +18,7 @@ export class ConfigService {
   private loadConfig(): AppConfig {
     return {
       // 서버 포트
-      serverPort: parseInt(process.env.PORT || '3000'),
+      serverPort: parseInt(process.env.PORT || '9007'),
       
       // 무시할 파일/폴더 패턴
       ignorePatterns: [
