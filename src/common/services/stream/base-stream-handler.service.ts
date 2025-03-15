@@ -11,12 +11,15 @@ export abstract class BaseStreamHandlerService implements StreamHandlerInterface
     this.logger = new Logger(loggerName);
   }
 
+  /**
+   * 스트림을 처리하는 추상 메서드
+   */
   abstract handleStream(stream: StreamSource, res: Response, model: string): void;
 
   /**
    * SSE 응답을 위한 헤더 설정
    */
-  protected setupSSEHeaders(res: Response): void {
+  public setupSSEHeaders(res: Response): void {
     res.status(200)
       .setHeader('Content-Type', 'text/event-stream')
       .setHeader('Cache-Control', 'no-cache')

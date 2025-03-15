@@ -6,11 +6,46 @@ import {
   TextCompletionResponse
 } from '../types/response.types';
 
-export class ChatCompletionChunkDto {
+/**
+ * 모든 응답 DTO의 기본 클래스
+ */
+export abstract class BaseResponseDto {
   id: string;
   object: string;
   created: number;
   model: string;
+
+  constructor(id: string, model: string, objectType: string) {
+    this.id = id;
+    this.object = objectType;
+    this.created = Math.floor(Date.now() / 1000);
+    this.model = model;
+  }
+
+  abstract toJSON(): unknown;
+}
+
+/**
+ * 토큰 사용량 정보를 포함하는 DTO의 기본 클래스
+ */
+export abstract class BaseCompletionResponseDto extends BaseResponseDto {
+  usage: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+
+  constructor(id: string, model: string, objectType: string) {
+    super(id, model, objectType);
+    this.usage = {
+      prompt_tokens: -1,
+      completion_tokens: -1,
+      total_tokens: -1
+    };
+  }
+}
+
+export class ChatCompletionChunkDto extends BaseResponseDto {
   choices: {
     delta: {
       content?: string;
@@ -20,10 +55,7 @@ export class ChatCompletionChunkDto {
   }[];
 
   constructor(id: string, model: string, content?: string, finish_reason: string | null = null) {
-    this.id = id;
-    this.object = "chat.completion.chunk";
-    this.created = Math.floor(Date.now() / 1000);
-    this.model = model;
+    super(id, model, "chat.completion.chunk");
     this.choices = [
       {
         delta: content ? { content } : {},
@@ -44,11 +76,7 @@ export class ChatCompletionChunkDto {
   }
 }
 
-export class TextCompletionChunkDto {
-  id: string;
-  object: string;
-  created: number;
-  model: string;
+export class TextCompletionChunkDto extends BaseResponseDto {
   choices: {
     text: string;
     index: number;
@@ -57,10 +85,7 @@ export class TextCompletionChunkDto {
   }[];
 
   constructor(id: string, model: string, text: string = "", finish_reason: string | null = null) {
-    this.id = id;
-    this.object = "text_completion.chunk";
-    this.created = Math.floor(Date.now() / 1000);
-    this.model = model;
+    super(id, model, "text_completion.chunk");
     this.choices = [
       {
         text,
@@ -82,11 +107,7 @@ export class TextCompletionChunkDto {
   }
 }
 
-export class ChatCompletionResponseDto {
-  id: string;
-  object: string;
-  created: number;
-  model: string;
+export class ChatCompletionResponseDto extends BaseCompletionResponseDto {
   choices: {
     index: number;
     message: {
@@ -95,17 +116,9 @@ export class ChatCompletionResponseDto {
     };
     finish_reason: string;
   }[];
-  usage: {
-    prompt_tokens: number;
-    completion_tokens: number;
-    total_tokens: number;
-  };
 
   constructor(id: string, model: string, message: { role: string; content: string }) {
-    this.id = id;
-    this.object = "chat.completion";
-    this.created = Math.floor(Date.now() / 1000);
-    this.model = model;
+    super(id, model, "chat.completion");
     this.choices = [
       {
         index: 0,
@@ -113,11 +126,6 @@ export class ChatCompletionResponseDto {
         finish_reason: "stop"
       }
     ];
-    this.usage = {
-      prompt_tokens: -1,
-      completion_tokens: -1,
-      total_tokens: -1
-    };
   }
 
   toJSON(): ChatCompletionResponse {
@@ -132,28 +140,16 @@ export class ChatCompletionResponseDto {
   }
 }
 
-export class TextCompletionResponseDto {
-  id: string;
-  object: string;
-  created: number;
-  model: string;
+export class TextCompletionResponseDto extends BaseCompletionResponseDto {
   choices: {
     text: string;
     index: number;
     logprobs: null;
     finish_reason: string;
   }[];
-  usage: {
-    prompt_tokens: number;
-    completion_tokens: number;
-    total_tokens: number;
-  };
 
   constructor(id: string, model: string, text: string) {
-    this.id = id;
-    this.object = "text_completion";
-    this.created = Math.floor(Date.now() / 1000);
-    this.model = model;
+    super(id, model, "text_completion");
     this.choices = [
       {
         text,
@@ -162,11 +158,6 @@ export class TextCompletionResponseDto {
         finish_reason: "stop"
       }
     ];
-    this.usage = {
-      prompt_tokens: -1,
-      completion_tokens: -1,
-      total_tokens: -1
-    };
   }
 
   toJSON(): TextCompletionResponse {

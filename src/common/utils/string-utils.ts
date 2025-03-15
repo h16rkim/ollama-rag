@@ -78,22 +78,33 @@ export function extractCodeContent(text: string): string {
 
 /**
  * 코드 자동완성 요청인지 확인합니다.
+ * 단순한 키워드 검사 대신 코드 패턴을 인식하는 정규식을 사용합니다.
  */
 export function isCodeCompletionRequest(prompt: string): boolean {
-  if (!prompt) return false;
-  
-  const codeIndicators = [
-    'function', 
-    'class', 
-    'export', 
-    'import', 
-    'const', 
-    'let', 
-    'var',
-    'interface',
-    'type',
-    'enum'
+  if (!prompt || typeof prompt !== 'string') {
+    return false;
+  }
+
+  // 코드 식별자 키워드
+  const codePatterns = [
+    // 함수, 클래스, 인터페이스 선언
+    /\b(function|class|interface)\s+\w+/i,
+    // 변수 선언
+    /\b(const|let|var)\s+\w+\s*=/i,
+    // import/export 문
+    /\b(import|export)\s+(?:{|\*|[\w$_]+)\s+(?:from\s+)?/i,
+    // 타입스크립트 타입 선언
+    /\b(type|enum|interface)\s+\w+/i,
+    // 정규식 함수 파라미터
+    /\(\s*\w+\s*:\s*\w+(?:\[\])?\s*(?:,|\))/i,
+    // 화살표 함수
+    /=>\s*{|\(\s*\w*\s*\)\s*=>/i,
+    // 함수 반환 타입 (타입스크립트)
+    /\)\s*:\s*\w+(?:\[\])?\s*{/i,
+    // 중괄호 내 코드 블록 (여러 줄)
+    /{\s*\n.*\n.*\n.*}/s
   ];
-  
-  return codeIndicators.some(indicator => prompt.includes(indicator));
+
+  // 하나라도 패턴과 일치하면 코드로 간주
+  return codePatterns.some(pattern => pattern.test(prompt));
 }

@@ -22,7 +22,8 @@ export class ChatStreamHandlerService extends BaseStreamHandlerService {
     
     // 채팅 스트림 데이터 핸들러 설정
     stream.data.on('data', (chunk: Buffer) => {
-      buffer = this.processStreamChunk(chunk, buffer, res, responseId, model);
+      const newBuffer = this.processStreamChunk(chunk, buffer, res, responseId, model);
+      buffer = newBuffer;
     });
 
     // 채팅 완료 핸들러 설정
@@ -44,14 +45,29 @@ export class ChatStreamHandlerService extends BaseStreamHandlerService {
     model: string
   ): string {
     // 버퍼에 새 데이터 추가
-    buffer += chunk.toString();
+    const currentBuffer = buffer + chunk.toString();
     
     // 줄바꿈으로 분리하여 각 JSON 객체 처리
-    const lines = buffer.split('\n');
+    const lines = currentBuffer.split('\n');
     
     // 마지막 줄은 완전한 JSON이 아닐 수 있으므로 버퍼에 남김
     const remainingBuffer = lines.pop() || '';
     
+    // 각 라인 처리
+    this.processStreamLines(lines, res, responseId, model);
+    
+    return remainingBuffer;
+  }
+
+  /**
+   * 스트림에서 파싱된 라인들을 처리합니다.
+   */
+  private processStreamLines(
+    lines: string[],
+    res: Response,
+    responseId: string,
+    model: string
+  ): void {
     for (const line of lines) {
       if (!line.trim()) continue;
       
@@ -62,8 +78,6 @@ export class ChatStreamHandlerService extends BaseStreamHandlerService {
         this.logger.error("JSON 파싱 오류:", parseError, "원본 데이터:", line);
       }
     }
-    
-    return remainingBuffer;
   }
 
   /**
