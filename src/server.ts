@@ -146,9 +146,12 @@ app.post('/v1/chat/completions', async (req: Request, res: Response) => {
       updatedMessages = [newSystemMessage, ...updatedMessages];
     }
 
+
     // Ollama API 호출
     const ollamaResponse = await axios.post<OllamaResponse>(`${CONFIG.ollama.baseUrl}/api/chat`, {
-      model: model || CONFIG.ollama.model,
+      // 모델이 gpt-4 로 와서 강제로 qwen 사용하도록 수정
+      // model: model || CONFIG.ollama.model,
+      model: CONFIG.ollama.model,
       messages: updatedMessages,
       stream: false
     });
@@ -173,9 +176,11 @@ app.post('/v1/chat/completions', async (req: Request, res: Response) => {
       }
     };
 
+    res.header('Content-Type', 'application/json')
     res.json(formattedResponse);
-  } catch (error) {
+  } catch (error: any) {
     console.error('API 오류:', (error as Error).message);
+    console.error(error)
     res.status(500).json({ error: '서버 오류', details: (error as Error).message });
   }
 });

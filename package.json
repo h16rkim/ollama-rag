@@ -5,9 +5,9 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/server.js",
+    "start:code-server": "DIRECTORY_PATHS=~/develop/inflab/course-backend,~/develop/inflab/inflearn-backend,~/develop/inflab/search node dist/ollama-code-server.js",
     "seed": "DIRECTORY_PATHS=~/develop/inflab/course-backend,~/develop/inflab/inflearn-backend,~/develop/inflab/search COLLECTION_NAME=code_farm node dist/index.js",
-    "dev": "ts-node src/index.ts"
+    "start:dev:code-server": "DIRECTORY_PATHS=~/develop/inflab/course-backend,~/develop/inflab/inflearn-backend,~/develop/inflab/search ts-node src/ollama-code-server.ts.ts"
   },
   "keywords": [],
   "author": "",
