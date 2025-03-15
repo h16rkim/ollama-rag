@@ -1,4 +1,4 @@
-// ollama-code-server.ts (stream 모드 추가)
+// ollama-code-server.ts
 import express, {query, Request, Response} from 'express';
 import axios from 'axios';
 import { ChromaClient, Collection } from 'chromadb';
@@ -14,20 +14,24 @@ interface ChatMessage {
 interface ChatRequest {
   messages: ChatMessage[];
   model?: string;
+  stream?: boolean;
+  options?: any;
 }
 
-interface OpenAIResponseChunk {
-  id: string;
-  object: string;
-  created: number;
-  model: string;
-  choices: {
-    index: number;
-    delta: {
-      content?: string;
-    };
-    finish_reason: string | null;
-  }[];
+interface GenerateRequest {
+  model?: string;
+  prompt: string;
+  system?: string;
+  template?: string;
+  context?: string[];
+  options?: {
+    temperature?: number;
+    top_p?: number;
+    top_k?: number;
+    num_predict?: number;
+    stop?: string[];
+  };
+  stream?: boolean;
 }
 
 const app = express();
@@ -107,89 +111,43 @@ function updateMessagesWithContext(messages: ChatMessage[], codeContext: string)
 }
 
 /**
- * OpenAI 호환 응답 청크를 생성합니다.
+ * 프롬프트에 코드 컨텍스트를 추가합니다.
  */
-function createOpenAIResponseChunk(
-  responseId: string, 
-  createdTimestamp: number, 
-  model: string, 
-  content?: string, 
-  isComplete: boolean = false
-): OpenAIResponseChunk {
-  return {
-    id: responseId,
-    object: "chat.completion.chunk",
-    created: createdTimestamp,
-    model: model,
-    choices: [
-      {
-        index: 0,
-        delta: content ? { content } : {},
-        finish_reason: isComplete ? "stop" : null
-      }
-    ]
-  };
+async function enhancePromptWithCodeContext(prompt: string): Promise<string> {
+  const codeContext = await fetchRelevantCodeContext(prompt);
+  return `다음은 개발자의 코드 예제들입니다. 이 스타일을 참고하세요:\n\n${codeContext}\n\n프롬프트: ${prompt}`;
 }
 
 /**
- * Ollama 응답 스트림을 처리합니다.
+ * 스트림 응답을 그대로 전달합니다.
  */
-function handleOllamaStream(
-  stream: any, 
-  res: Response, 
-  responseId: string, 
-  createdTimestamp: number, 
-  model: string
+function passRawStream(
+  stream: any,
+  res: Response
 ): void {
-  // 데이터 스트림 변환 및 전송
   stream.data.on('data', (chunk: Buffer) => {
     try {
       const jsonString = chunk.toString().trim();
-      if (!jsonString) return; // 빈 데이터 방지
+      if (!jsonString) return;
 
-      // Ollama의 메시지 구조를 OpenAI 형식으로 변환
-      const parsedData = JSON.parse(jsonString);
-      if (!parsedData.message?.content) return; // 유효한 메시지가 아닐 경우 무시
-
-      const openAIFormattedResponse = createOpenAIResponseChunk(
-        responseId, 
-        createdTimestamp, 
-        model, 
-        parsedData.message.content
-      );
-
-      // OpenAI 스트리밍 형식으로 전송
-      const responseChunk = `data: ${JSON.stringify(openAIFormattedResponse)}\n\n`;
-      console.log(responseChunk); // 디버깅용
-
-      res.write(responseChunk);
+      // Ollama 응답을 그대로 전달
+      res.write(jsonString + '\n');
     } catch (error) {
       console.error("스트리밍 데이터 처리 중 오류:", error);
     }
   });
 
-  // 스트리밍 종료 감지
   stream.data.on('end', () => {
-    const doneMessage = createOpenAIResponseChunk(
-      responseId, 
-      createdTimestamp, 
-      model, 
-      undefined, 
-      true
-    );
-
-    res.write(`data: ${JSON.stringify(doneMessage)}\n\n`);
-    res.write("data: [DONE]\n\n");
     res.end();
   });
 }
 
 /**
- * 채팅 완성 API 엔드포인트 핸들러
+ * 채팅 API 엔드포인트 핸들러 (Ollama 원본 형식)
  */
-app.post('/v1/chat/completions', async (req: Request, res: Response) => {
+app.post('/api/chat', async (req: Request, res: Response) => {
   try {
-    const { messages, model } = req.body as ChatRequest;
+    const { messages, model, stream = false, options } = req.body as ChatRequest;
     const userMessage = messages.find(m => m.role === 'user')?.content || '';
     const modelToUse = model || CONFIG.ollama.model;
 
@@ -203,29 +161,192 @@ app.post('/v1/chat/completions', async (req: Request, res: Response) => {
     // 관련 코드를 컨텍스트로 추가
     const updatedMessages = updateMessagesWithContext(messages, codeContext);
 
-    // 스트리밍 응답 설정 (필수 헤더)
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-
-    console.log("요청 보내기");
-
-    // Ollama API 요청 (스트리밍 모드)
-    const stream = await axios.post(`${CONFIG.ollama.baseUrl}/api/chat`, {
+    // 요청 데이터 구성
+    const requestData: any = {
       model: modelToUse,
       messages: updatedMessages,
-      stream: true
-    }, { responseType: 'stream' });
+      stream
+    };
 
-    // OpenAI 호환 ID 생성
-    const responseId = `chatcmpl-${Date.now()}`;
-    const createdTimestamp = Math.floor(Date.now() / 1000);
+    // 옵션이 있으면 추가
+    if (options) {
+      requestData.options = options;
+    }
 
-    // 스트림 처리 시작
-    handleOllamaStream(stream, res, responseId, createdTimestamp, modelToUse);
+    console.log(`/api/chat 요청: ${modelToUse}, 스트리밍: ${stream}`);
 
+    // 스트리밍 모드
+    if (stream) {
+      // 응답 헤더 설정
+      res.setHeader('Content-Type', 'application/x-ndjson');
+      
+      // Ollama API 요청 (스트리밍 모드)
+      const ollamaStream = await axios.post(
+        `${CONFIG.ollama.baseUrl}/api/chat`, 
+        requestData, 
+        { responseType: 'stream' }
+      );
+      
+      // 스트림 데이터 그대로 전달
+      passRawStream(ollamaStream, res);
+    } 
+    // 비스트리밍 모드
+    else {
+      // Ollama API 요청
+      const response = await axios.post(
+        `${CONFIG.ollama.baseUrl}/api/chat`, 
+        requestData
+      );
+      
+      // Ollama 응답 그대로 반환
+      res.json(response.data);
+    }
   } catch (error: any) {
-    console.error('API 오류:', error.message);
+    console.error('Chat API 오류:', error.message);
+    res.status(500).json({ error: '서버 오류', details: error.message });
+  }
+});
+
+/**
+ * Generate API 엔드포인트 핸들러 (Ollama 원본 형식)
+ */
+app.post('/api/generate', async (req: Request, res: Response) => {
+  try {
+    const { model, prompt, system, template, context, options, stream = false } = req.body as GenerateRequest;
+    
+    if (!prompt) {
+      return res.status(400).json({ error: '프롬프트가 필요합니다' });
+    }
+
+    const modelToUse = model || CONFIG.ollama.model;
+    
+    let enhancedPrompt = prompt;
+    
+    // 벡터 DB가 초기화되어 있으면 코드 컨텍스트 추가
+    if (collection) {
+      try {
+        enhancedPrompt = await enhancePromptWithCodeContext(prompt);
+      } catch (error) {
+        console.warn('코드 컨텍스트 추가 실패, 원본 프롬프트 사용:', error);
+      }
+    }
+    
+    // 요청 데이터 구성
+    const requestData: any = {
+      model: modelToUse,
+      prompt: enhancedPrompt,
+      stream
+    };
+    
+    // 옵션이 있으면 추가
+    if (options) {
+      requestData.options = options;
+    }
+    
+    // 시스템 프롬프트가 있으면 추가
+    if (system) {
+      requestData.system = system;
+    }
+    
+    // 템플릿이 있으면 추가
+    if (template) {
+      requestData.template = template;
+    }
+    
+    // 컨텍스트가 있으면 추가
+    if (context) {
+      requestData.context = context;
+    }
+    
+    console.log(`/api/generate 요청: ${modelToUse}, 스트리밍: ${stream}`);
+    
+    // 스트리밍 모드
+    if (stream) {
+      // 응답 헤더 설정
+      res.setHeader('Content-Type', 'application/x-ndjson');
+      
+      try {
+        // Ollama API 요청 (스트리밍 모드)
+        const ollamaStream = await axios.post(
+          `${CONFIG.ollama.baseUrl}/api/generate`, 
+          requestData, 
+          { 
+            responseType: 'stream',
+            timeout: 30000,
+            validateStatus: (status) => true // 모든 상태 코드 허용
+          }
+        );
+        
+        // 스트림 데이터 그대로 전달
+        passRawStream(ollamaStream, res);
+      } catch (error: any) {
+        console.error('Generate API 스트리밍 오류:', error);
+        if (error.response) {
+          console.error('응답 데이터:', error.response.data);
+          console.error('응답 상태:', error.response.status);
+          console.error('응답 헤더:', error.response.headers);
+        }
+        res.status(500).json({ error: '스트림 처리 중 오류가 발생했습니다.', details: error.message });
+      }
+    } 
+    // 비스트리밍 모드
+    else {
+      try {
+        // Ollama API 요청
+        const response = await axios.post(
+          `${CONFIG.ollama.baseUrl}/api/generate`, 
+          requestData,
+          {
+            timeout: 30000,
+            validateStatus: (status) => true // 모든 상태 코드 허용
+          }
+        );
+        
+        console.log('응답 상태 코드:', response.status);
+        
+        // Ollama 응답 그대로 반환
+        res.json(response.data);
+      } catch (error: any) {
+        console.error('Generate API 요청 오류:', error);
+        if (error.response) {
+          console.error('응답 데이터:', error.response.data);
+          console.error('응답 상태:', error.response.status);
+        }
+        res.status(500).json({ error: '요청 처리 중 오류가 발생했습니다.', details: error.message });
+      }
+    }
+  } catch (error: any) {
+    console.error('Generate API 오류:', error.message);
+    res.status(500).json({ error: '서버 오류', details: error.message });
+  }
+});
+
+/**
+ * 임베딩 API 엔드포인트 핸들러
+ */
+app.post('/api/embeddings', async (req: Request, res: Response) => {
+  try {
+    const { model, prompt } = req.body;
+
+    if (!prompt) {
+      return res.status(400).json({ error: '프롬프트가 필요합니다' });
+    }
+
+    const modelToUse = model || CONFIG.ollama.embeddingModel;
+
+    // Ollama API로 임베딩 요청 전달
+    const response = await axios.post(
+      `${CONFIG.ollama.baseUrl}/api/embeddings`,
+      {
+        model: modelToUse,
+        prompt
+      }
+    );
+
+    // Ollama 응답 그대로 반환
+    res.json(response.data);
+  } catch (error: any) {
+    console.error('Embeddings API 오류:', error.message);
     res.status(500).json({ error: '서버 오류', details: error.message });
   }
 });
@@ -236,7 +357,8 @@ async function startServer(): Promise<void> {
     await initChromaDB();
 
     app.listen(CONFIG.serverPort, () => {
-      console.log(`OpenAI 호환 API 서버가 http://localhost:${CONFIG.serverPort}에서 실행 중 (Stream Mode)`);
+      console.log(`Ollama 프록시 서버가 http://localhost:${CONFIG.serverPort}에서 실행 중`);
+      console.log(`지원 엔드포인트: /api/chat, /api/generate, /api/embeddings`);
     });
   } catch (error) {
     console.error('서버 초기화 오류:', (error as Error).message);
