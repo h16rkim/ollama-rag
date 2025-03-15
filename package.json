@@ -10,7 +10,7 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
-    "seed": "DIRECTORY_PATHS=~/develop/inflab/course-backend,~/develop/inflab/inflearn-backend,~/develop/inflab/search COLLECTION_NAME=code_farm node dist/index.js",
+    "seed": "DIRECTORY_PATHS=~/develop/inflab/course-backend,~/develop/inflab/inflearn-backend,~/develop/inflab/search COLLECTION_NAME=code_farm ts-node src/.script/seed.ts",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix"
   },
   "keywords": [],
