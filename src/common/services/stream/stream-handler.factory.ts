@@ -1,4 +1,4 @@
-// src/common/services/stream/stream-handler-factory.service.ts
+// src/common/services/stream/stream-handler.factory.ts
 import { Injectable } from '@nestjs/common';
 import { StreamHandlerInterface } from './base-stream-handler.service';
 import { ChatStreamHandlerService } from './chat-stream-handler.service';
@@ -10,7 +10,7 @@ export enum StreamType {
 }
 
 @Injectable()
-export class StreamHandlerFactoryService {
+export class StreamHandlerFactory {
   constructor(
     private readonly chatStreamHandler: ChatStreamHandlerService,
     private readonly generateStreamHandler: GenerateStreamHandlerService

@@ -2,10 +2,7 @@
 import { Logger } from '@nestjs/common';
 import { Response } from 'express';
 import { StreamData, StreamSource, StreamProcessor } from '../../types/stream.types';
-
-export interface StreamHandlerInterface {
-  handleStream(stream: StreamSource, res: Response, model: string): void;
-}
+import { StreamHandlerInterface } from './stream-handler.interface';
 
 export abstract class BaseStreamHandlerService implements StreamHandlerInterface {
   protected readonly logger: Logger;

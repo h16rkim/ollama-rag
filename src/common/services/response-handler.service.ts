@@ -2,12 +2,12 @@
 import { Injectable } from '@nestjs/common';
 import { Response } from 'express';
 import { StreamSource } from '../types/stream.types';
-import { StreamHandlerFactoryService, StreamType } from './stream/stream-handler-factory.service';
+import { StreamHandlerFactory, StreamType } from './stream/stream-handler.factory';
 
 @Injectable()
 export class ResponseHandlerService {
   constructor(
-    private readonly streamHandlerFactory: StreamHandlerFactoryService
+    private readonly streamHandlerFactory: StreamHandlerFactory
   ) {}
 
   /**

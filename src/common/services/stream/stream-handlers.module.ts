@@ -2,18 +2,18 @@
 import { Module } from '@nestjs/common';
 import { ChatStreamHandlerService } from './chat-stream-handler.service';
 import { GenerateStreamHandlerService } from './generate-stream-handler.service';
-import { StreamHandlerFactoryService } from './stream-handler-factory.service';
+import { StreamHandlerFactory } from './stream-handler.factory';
 
 @Module({
   providers: [
     ChatStreamHandlerService,
     GenerateStreamHandlerService,
-    StreamHandlerFactoryService
+    StreamHandlerFactory
   ],
   exports: [
     ChatStreamHandlerService,
     GenerateStreamHandlerService,
-    StreamHandlerFactoryService
+    StreamHandlerFactory
   ]
 })
 export class StreamHandlersModule {}
