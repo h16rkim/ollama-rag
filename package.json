@@ -10,6 +10,7 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "seed": "DIRECTORY_PATHS=~/develop/inflab/course-backend,~/develop/inflab/inflearn-backend,~/develop/inflab/search COLLECTION_NAME=code_farm node dist-seed/seed.js",
+    "seed-optimized": "DIRECTORY_PATHS=~/develop/inflab/course-backend,~/develop/inflab/inflearn-backend,~/develop/inflab/search COLLECTION_NAME=code_farm node dist-seed/seed-optimized.js",
     "format": "prettier --write \"src/**/*.ts\"",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix"
   },

@@ -14,6 +14,8 @@ interface ChunkMetadata {
   totalChunks?: number;
   fileName?: string;
   filePath?: string;
+  fileDir?: string;    // 추가: 파일 디렉토리
+  fileExtension?: string; // 추가: 파일 확장자
   [key: string]: any; // 인덱스 시그니처 추가 - ChromaDB 호환성 위해
 }
 
@@ -67,12 +69,8 @@ async function initChromaDB(): Promise<Collection> {
   // 커스텀 임베딩 함수 (Ollama 사용)
   const embeddingFunction = {
     generate: async (texts: string[]): Promise<number[][]> => {
-      const embeddings: number[][] = [];
-      for (const text of texts) {
-        const embedding = await generateEmbedding(text);
-        embeddings.push(embedding);
-      }
-      return embeddings;
+      // Promise.all을 사용하여 병렬 처리
+      return Promise.all(texts.map(text => generateEmbedding(text)));
     }
   };
 
@@ -181,12 +179,17 @@ async function findAllCodeFiles(directories: string[]): Promise<string[]> {
   return allFiles;
 }
 
-// 텍스트를 청크로 분할
+// 텍스트를 청크로 분할 (수정된 메타데이터 포함)
 function splitTextIntoChunks(text: string, filepath: string): Chunk[] {
   const lines = text.split('\n');
   const chunks: Chunk[] = [];
   let currentChunk: string[] = [];
   let currentLength = 0;
+
+  // 파일 메타데이터 (chroma.service.ts와 호환되도록)
+  const fileBaseName = path.basename(filepath);
+  const fileDir = path.dirname(filepath);
+  const fileExt = path.extname(filepath);
 
   for (const line of lines) {
     // 빈 줄은 건너뛰기
@@ -201,7 +204,11 @@ function splitTextIntoChunks(text: string, filepath: string): Chunk[] {
         content: currentChunk.join('\n'),
         metadata: {
           source: filepath,
-          language: path.extname(filepath).substring(1),
+          language: fileExt.substring(1),
+          fileName: fileBaseName,
+          filePath: filepath,
+          fileDir: fileDir,
+          fileExtension: fileExt
         }
       });
 
@@ -221,7 +228,11 @@ function splitTextIntoChunks(text: string, filepath: string): Chunk[] {
       content: currentChunk.join('\n'),
       metadata: {
         source: filepath,
-        language: path.extname(filepath).substring(1),
+        language: fileExt.substring(1),
+        fileName: fileBaseName,
+        filePath: filepath,
+        fileDir: fileDir,
+        fileExtension: fileExt
       }
     });
   }
@@ -284,12 +295,11 @@ async function main(): Promise<void> {
         documents.push(chunk.content);
 
         // 메타데이터 - Record<string, any> 타입으로 캐스팅
+        // 이제 fileName, filePath, fileDir, fileExtension 포함 (chroma.service.ts와 호환되도록)
         metadatas.push({
           ...chunk.metadata,
           chunkIndex: j,
-          totalChunks: chunks.length,
-          fileName: path.basename(filePath),
-          filePath: filePath,
+          totalChunks: chunks.length
         });
 
         processedChunks++;
