@@ -1,5 +1,4 @@
 node_modules/
-.idea/
-db/
 dist/
 dist-seed/
+db/

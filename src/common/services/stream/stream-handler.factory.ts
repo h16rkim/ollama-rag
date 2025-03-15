@@ -1,6 +1,5 @@
-// src/common/services/stream/stream-handler.factory.ts
 import { Injectable } from '@nestjs/common';
-import { StreamHandlerInterface } from './base-stream-handler.service';
+import { StreamHandlerInterface } from './stream-handler.interface';
 import { ChatStreamHandlerService } from './chat-stream-handler.service';
 import { GenerateStreamHandlerService } from './generate-stream-handler.service';
 
