@@ -49,6 +49,8 @@ export class OllamaService {
     
     // 벡터 DB에서 관련 코드 검색
     const codeContext = await this.chromaService.fetchRelevantCodeContext(userMessage);
+
+    console.log(`codeContext : ${codeContext}`);
     
     // 관련 코드를 컨텍스트로 추가
     const updatedMessages = await this.updateMessagesWithContext(messages, codeContext);
@@ -98,6 +100,7 @@ export class OllamaService {
     if (this.chromaService.isCollectionInitialized()) {
       try {
         enhancedPrompt = await this.chromaService.enhancePromptWithCodeContext(prompt);
+        this.logger.log(`enhancedPrompt : ${enhancedPrompt}`)
       } catch (error) {
         this.logger.warn('코드 컨텍스트 추가 실패, 원본 프롬프트 사용:', error);
       }
