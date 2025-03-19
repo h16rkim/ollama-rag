@@ -67,11 +67,12 @@ export class OllamaService {
       requestData.options = options;
     }
     
-    this.logger.log(`/api/chat 요청: ${modelToUse}, 스트리밍: ${stream}`);
+    this.logger.log(`/api/generate 요청: ${modelToUse}, 스트리밍: ${stream}`);
+    this.logger.log(`${this.configService.get('ollama').baseUrl}/api/chat`);
     
       // Ollama API 요청
       const response = await axios.post(
-        `${this.configService.get('ollama').baseUrl}/api/chat`, 
+        `${this.configService.get('ollama').baseUrl}/api/generate`,
         requestData,
         stream ? { responseType: 'stream' } : {}
       );

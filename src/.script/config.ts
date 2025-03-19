@@ -56,6 +56,7 @@ const CONFIG: AppConfig = {
   // 무시할 파일/폴더 패턴
   ignorePatterns: [
     'node_modules',
+    'scripts',
     '.gradle',
     '.git',
     '.husky',
